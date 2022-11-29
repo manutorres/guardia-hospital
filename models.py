@@ -1,10 +1,9 @@
 import json
 from pydantic import BaseModel, ValidationError, validator, Field
-from datetime import date, time
+from fastapi.encoders import jsonable_encoder
+from datetime import date, time, datetime
 from typing import Optional, List, Literal
 from bson import ObjectId
-from os import environ
-from datetime import datetime
 
 
 with open("triage.json") as triage_file:
@@ -12,14 +11,15 @@ with open("triage.json") as triage_file:
 
 niveles_prioridad = [int(prioridad["nivel"]) for prioridad in triage_json["triage"]]
 
-NIVEL_PRIORIDAD_INICIAL = sorted(niveles_prioridad)[0]
+NIVEL_PRIORIDAD_INGRESO = sorted(niveles_prioridad)[0]
 
-"""
-Decodificador custom que permite formatear la hora al momento de traducir un modelo a diccionario
-"""
-datetime_enconder = {
-    datetime: lambda dt: dt.strftime("%H:%M")
-}
+
+def now() -> str:
+    return datetime.now().strftime("%H:%S")
+
+
+def json_dict(obj: dict | list[dict]) -> dict:
+    return jsonable_encoder(obj, custom_encoder=ConsultaModel.Config.json_encoders)
 
 
 """
@@ -68,10 +68,11 @@ class DatosPacienteModel(BaseModel):
 
 class EstadoAtendidoModel(BaseModel):
     atendido: bool = False
-    hora: time | None = None
+    hora: datetime | None = None
 
     def set_hora(self):
-        self.hora = datetime.today().strftime("%H:%M") if self.atendido else None
+        # self.hora = datetime.today().strftime("%H:%M") if self.atendido else None
+        self.hora = now() if self.atendido else None
 
     class Config:
         schema_extra = {
@@ -82,11 +83,11 @@ class EstadoAtendidoModel(BaseModel):
 
 
 class PrioridadModel(BaseModel):
-    nivel: int = NIVEL_PRIORIDAD_INICIAL
-    hora: time | None = None
+    nivel: int = NIVEL_PRIORIDAD_INGRESO
+    hora: datetime | None = None
 
     def set_hora(self):
-        self.hora = datetime.today().strftime("%H:%M") if self.nivel > NIVEL_PRIORIDAD_INICIAL else None
+        self.hora = now() if self.nivel > NIVEL_PRIORIDAD_INGRESO else None
 
     @validator('nivel')
     def nivel_valido(cls, nivel):
@@ -113,10 +114,10 @@ class SignosVitalesModel(BaseModel):
 
 class ExamenFisicoModel(BaseModel):
     examen: str | None = None
-    hora: time | None = None
+    hora: datetime | None = None
 
     def set_hora(self):
-        self.hora = datetime.today().strftime("%H:%M") if (self.examen and not self.examen.isspace()) else None
+        self.hora = now() if (self.examen and not self.examen.isspace()) else None
 
     class Config:       
         schema_extra = {
@@ -129,7 +130,7 @@ class ExamenFisicoModel(BaseModel):
 class DatosMedicosModel(BaseModel):
     signos_vitales: SignosVitalesModel | None = None
     anamnesis_enfermeria: str | None = None
-    examen_fisico: ExamenFisicoModel = Field(...)
+    examen_fisico: ExamenFisicoModel = Field(default_factory=ExamenFisicoModel)
     medicacion: str | None = None
 
     class Config:
@@ -155,22 +156,23 @@ class DatosMedicosModel(BaseModel):
 class ConsultaModel(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     datos_paciente: DatosPacienteModel = Field(...)
-    dia_admision: date = Field(...)
-    hora_admision: time = Field(...)
-    estado_atendido: EstadoAtendidoModel = Field(...)
-    prioridad: PrioridadModel = Field(...)
-    datos_medicos: DatosMedicosModel = Field(...)
+    fecha_hora_admision: datetime = Field(default_factory=datetime.now)
+    # estado_atendido: EstadoAtendidoModel = Field(default_factory=EstadoAtendidoModel)
+    fecha_hora_atencion: datetime | None = None
+    prioridad: PrioridadModel = Field(default_factory=PrioridadModel)
+    datos_medicos: DatosMedicosModel = Field(default_factory=DatosMedicosModel)
 
-    def __init__(self, datos_paciente):
-        dia_hora_actual = datetime.today()
-        data = {}
-        data["datos_paciente"] = datos_paciente        
-        data["dia_admision"] = dia_hora_actual.strftime("%Y-%m-%d")
-        data["hora_admision"] = dia_hora_actual.strftime("%H:%M")
-        data["estado_atendido"] = EstadoAtendidoModel()
-        data["prioridad"] = PrioridadModel()
-        data["datos_medicos"] = DatosMedicosModel(examen_fisico=ExamenFisicoModel())
-        super().__init__(**data)
+    # def __init__(self, datos_paciente):
+    #     dia_hora_actual = datetime.today()
+    #     data = {}
+    #     data["datos_paciente"] = datos_paciente        
+    #     data["dia_admision"] = dia_hora_actual.strftime("%Y-%m-%d")
+    #     data["hora_admision"] = dia_hora_actual.strftime("%H:%M")
+    #     data["fecha_hora_admision"] = datetime.utcnow()
+    #     data["estado_atendido"] = EstadoAtendidoModel()
+    #     data["prioridad"] = PrioridadModel()
+    #     data["datos_medicos"] = DatosMedicosModel(examen_fisico=ExamenFisicoModel())
+    #     super().__init__(**data)
 
     class Config:
         allow_population_by_field_name = True
