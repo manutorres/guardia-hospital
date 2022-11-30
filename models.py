@@ -15,10 +15,10 @@ NIVEL_PRIORIDAD_INGRESO = sorted(niveles_prioridad)[0]
 
 
 def now() -> str:
-    return datetime.now().strftime("%H:%S")
+    return datetime.now().strftime("%H:%M")
 
 
-def json_dict(obj: dict | list[dict]) -> dict:
+def json_dict(obj: dict | list[dict]) -> dict | list[dict]:
     return jsonable_encoder(obj, custom_encoder=ConsultaModel.Config.json_encoders)
 
 

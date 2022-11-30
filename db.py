@@ -2,6 +2,7 @@ from datetime import datetime
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from bson import ObjectId
 from pymongo.errors import DuplicateKeyError, OperationFailure
+from pymongo.results import UpdateResult
 from bson.errors import InvalidId
 from dotenv import load_dotenv
 from os import environ
@@ -21,8 +22,10 @@ CONSULTAS_HISTORIAL = "consultas_historial"
 
 
 
-def get_consultas(coleccion: str = CONSULTAS_ACTIVAS):
-    consultas = list(db[coleccion].find())
+def get_consultas(coleccion: str = CONSULTAS_ACTIVAS, filtro: dict = {}, proyeccion: list = [], orden: tuple | list[tuple] = {}):
+    orden = [orden] if isinstance(orden, tuple) else orden
+    cursor = db[coleccion].find(filtro, proyeccion).sort(orden)
+    consultas = list(cursor)
     return consultas
 
 
@@ -38,18 +41,41 @@ def get_consulta(id: str, coleccion: str = CONSULTAS_ACTIVAS):
 
 
 def get_consultas_activas():
-    no_atendidas = db[CONSULTAS_ACTIVAS].find().sort([
-        ("prioridad.nivel", DESCENDING), 
-        ("fecha_hora_admision", DESCENDING)
-    ])
-    return list(no_atendidas)
+    activas = get_consultas(
+        coleccion=CONSULTAS_ACTIVAS,
+        filtro={},
+        proyeccion=["fecha_hora_admision", "prioridad"],
+        orden=[
+            ("prioridad.nivel", DESCENDING), 
+            ("fecha_hora_admision", DESCENDING)
+        ]
+    )
+    return activas
 
 
 
-def get_consultas_por_dni(dni: str):
-    consulta_activa = db[CONSULTAS_ACTIVAS].find_one({"dni": dni})
-    consultas_previas = list(db[CONSULTAS_HISTORIAL].find({"dni": dni})).sort({"fecha_hora_admision"})
-    return [consulta_activa].extend(consultas_previas)
+def get_consultas_historial():
+    activas = get_consultas(
+        coleccion=CONSULTAS_HISTORIAL, 
+        filtro={}, 
+        proyeccion=["datos_paciente.dni", "fecha_hora_admision", "fecha_hora_atencion"],
+        orden=("fecha_hora_admision", DESCENDING)
+    )
+    return activas
+
+
+
+def get_consultas_por_dni(dni: int):
+    consulta_activa = db[CONSULTAS_ACTIVAS].find_one({"datos_paciente.dni": dni}) # Consulta o None
+    consultas = [consulta_activa] if consulta_activa else []
+    consultas_previas = get_consultas(
+        coleccion=CONSULTAS_HISTORIAL, 
+        filtro={"datos_paciente.dni": dni}, 
+        proyeccion=["datos_paciente.dni", "datos_paciente.domicilio", "fecha_hora_admision", "fecha_hora_atencion"],
+        orden=("fecha_hora_admision", DESCENDING)
+    )
+    consultas.extend(consultas_previas)
+    return consultas
 
 
 
@@ -60,7 +86,7 @@ def create_consulta(consulta: dict):
 
 
 
-def update_consulta(id: str, coleccion: str = CONSULTAS_ACTIVAS, update = {}):
+def update_consulta(id: str, coleccion: str = CONSULTAS_ACTIVAS, update = {}) -> UpdateResult:
     try:
         id = ObjectId(id)
         consulta = db[coleccion].update_one({"_id": id}, update)
@@ -126,10 +152,10 @@ def update_prioridad(id: str, prioridad: dict):
             "prioridad.hora": {
                 "$cond": {
                     "if": {
-                        "$eq": ["$prioridad.hora", None]
+                        "$eq": ["$prioridad.hora", None] # No recalcular hora si ya tiene prioridad asignada
                     },
                     "then": prioridad["hora"],
-                    "else": "$prioridad.hora" # existing value
+                    "else": "$prioridad.hora" # valor existente
                 }
             }
         }
