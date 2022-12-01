@@ -108,9 +108,16 @@ class SignosVitalesModel(BaseModel):
     ta_d: int = Field(...)
     fc: int = Field(...)
     fr: int = Field(...)
-    t: int = Field(...)
+    t: float = Field(...)
     sat: int = Field(...)
+    normal: bool = True  # Analisis de normalidad/alteración de los signos vitales. True = OK
 
+    @validator("normal", always=True)
+    def check_signos_vitales(cls, value, values):
+        return ((100 <= values["ta_s"] <= 140) and (60 <= values["ta_d"] <= 90) and 
+            (60 <= values["fc"] <= 100) and (8 <= values["fr"] <= 16) and 
+            (values["t"] <= 38.0) and (values["sat"] >= 95)
+        )
 
 class ExamenFisicoModel(BaseModel):
     examen: str | None = None
@@ -118,13 +125,6 @@ class ExamenFisicoModel(BaseModel):
 
     def set_hora(self):
         self.hora = now() if (self.examen and not self.examen.isspace()) else None
-
-    class Config:       
-        schema_extra = {
-            "example": {
-                "examen": "Examen fisico"
-            }
-        }
 
 
 class DatosMedicosModel(BaseModel):
@@ -137,12 +137,12 @@ class DatosMedicosModel(BaseModel):
         schema_extra = {
             "example": {
                 "signos_vitales": {
-                    "ta_s": 0,
-                    "ta_d": 0,
-                    "fc": 0,
-                    "fr": 0,
-                    "t": 0,
-                    "sat": 0
+                    "ta_s": 120,
+                    "ta_d": 80,
+                    "fc": 70,
+                    "fr": 12,
+                    "t": 37,
+                    "sat": 100
                 },
                 "examen_fisico": {
                     "examen": "Examen fisico"
@@ -157,7 +157,6 @@ class ConsultaModel(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     datos_paciente: DatosPacienteModel = Field(...)
     fecha_hora_admision: datetime = Field(default_factory=datetime.now)
-    # estado_atendido: EstadoAtendidoModel = Field(default_factory=EstadoAtendidoModel)
     fecha_hora_atencion: datetime | None = None
     prioridad: PrioridadModel = Field(default_factory=PrioridadModel)
     datos_medicos: DatosMedicosModel = Field(default_factory=DatosMedicosModel)
