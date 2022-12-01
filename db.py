@@ -30,11 +30,11 @@ def get_consultas(coleccion: str = CONSULTAS_ACTIVAS, filtro: dict = {}, proyecc
 
 
 
-def get_consulta(id: str, coleccion: str = CONSULTAS_ACTIVAS):
+def get_consulta(id: str, coleccion: str = CONSULTAS_ACTIVAS, proyeccion: list = []):
     try:
         id = ObjectId(id)
-        consulta = db[coleccion].find_one({"_id": id})
-    except Exception as _:
+        consulta = db[coleccion].find_one({"_id": id}, proyeccion)
+    except Exception:
         return None
     return consulta
 
@@ -76,6 +76,25 @@ def get_consultas_por_dni(dni: int):
     )
     consultas.extend(consultas_previas)
     return consultas
+
+
+
+def get_horarios(id: str, activa: bool = True):
+    
+    horarios = get_consulta(
+        id = id,
+        coleccion = CONSULTAS_ACTIVAS if activa else CONSULTAS_HISTORIAL,
+        proyeccion = {
+            "_id": { "$toString": "$_id"},
+            "fecha_admision": { "$dateToString": { "format": "%d-%m-%Y", "date": "$fecha_hora_admision" } },
+            "hora_admision": { "$dateToString": { "format": "%H-%M", "date": "$fecha_hora_admision" } },
+            "hora_triage": "$prioridad.hora",
+            "hora_examen_fisico": "$datos_medicos.examen_fisico.hora",
+            "hora_atencion": { "$dateToString": { "format": "%H-%M", "date": "$fecha_hora_atencion" } }
+        }
+    )    
+    
+    return horarios
 
 
 

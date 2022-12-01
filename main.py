@@ -59,6 +59,17 @@ def get_consulta(consulta_id: str):
 
 
 
+@app.get("/horarios/{consulta_id}", response_description="Muestra los horarios de atención de la consulta de ID {consulta_id}")
+def get_horarios(consulta_id: str, activa: bool = True):
+    if (consulta := db.get_horarios(consulta_id, activa)) is None:
+        raise HTTPException(status_code=404, detail=f"La consulta {consulta_id} no fue encontrada")
+
+    # respuesta_json = json_dict(consulta)
+    respuesta_json = consulta
+    return JSONResponse(status_code=status.HTTP_200_OK, content=respuesta_json)
+
+
+
 @app.put("/{consulta_id}/paciente", response_description="Edita los datos de ingreso a consulta del paciente", response_model=DatosPacienteModel)
 def update_datos_paciente(consulta_id: str, datos_paciente: DatosPacienteModel):
     datos_paciente = jsonable_encoder(datos_paciente) 
