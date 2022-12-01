@@ -149,6 +149,7 @@ def update_prioridad(id: str, prioridad: dict):
     update = [{
         "$set": {
             "prioridad.nivel": prioridad["nivel"],
+            "prioridad.tiempo_espera": prioridad["tiempo_espera"],
             "prioridad.hora": {
                 "$cond": {
                     "if": {

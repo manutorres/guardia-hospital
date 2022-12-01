@@ -82,7 +82,7 @@ def set_consulta_atendida(consulta_id: str):
 
 
 
-@app.put("/{consulta_id}/noatendida", response_description="Devuelve la consulta a la lista de espera", response_model=EstadoAtendidoModel)
+@app.put("/{consulta_id}/noatendida", response_description="Marca la consulta como no atendida y la devuelve a lista de espera", response_model=EstadoAtendidoModel)
 def unset_consulta_atendida(consulta_id: str):
     consulta_actualizada = db.unset_consulta_atendida(consulta_id)
     if not consulta_actualizada:
@@ -94,9 +94,7 @@ def unset_consulta_atendida(consulta_id: str):
 
 
 @app.put("/{consulta_id}/prioridad", response_description="Edita la prioridad triage asociada a la consulta", response_model=PrioridadModel)
-def update_prioridad(consulta_id: str, prioridad_model: PrioridadModel):   
-    if prioridad_model.nivel > NIVEL_PRIORIDAD_INGRESO:
-        prioridad_model.set_hora()
+def update_prioridad(consulta_id: str, prioridad_model: PrioridadModel):    
     prioridad_dict = prioridad_model.dict()
     consulta_actualizada = db.update_prioridad(consulta_id, prioridad_dict)
     if not consulta_actualizada:
@@ -108,10 +106,7 @@ def update_prioridad(consulta_id: str, prioridad_model: PrioridadModel):
 
 
 @app.put("/{consulta_id}/datosmedicos", response_description="Edita los datos medicos del paciente", response_model=DatosMedicosModel)
-def update_datos_medicos(consulta_id: str, datos_medicos: DatosMedicosModel):    
-    examen = datos_medicos.examen_fisico.examen
-    if (examen is not None and not examen.isspace()):
-        datos_medicos.examen_fisico.set_hora()    
+def update_datos_medicos(consulta_id: str, datos_medicos: DatosMedicosModel):     
     datos_medicos_dict = datos_medicos.dict()
     consulta_actualizada = db.update_datos_medicos(consulta_id, datos_medicos_dict)
     if not consulta_actualizada:

@@ -6,12 +6,12 @@ from typing import Optional, List, Literal
 from bson import ObjectId
 
 
-with open("triage.json") as triage_file:
-    triage_json = json.load(triage_file)
+with open("triage.json") as triage_json:
+    triage = json.load(triage_json)["triage"]
 
-niveles_prioridad = [int(prioridad["nivel"]) for prioridad in triage_json["triage"]]
+niveles_prioridad = [int(nivel) for nivel in triage.keys()]
 
-NIVEL_PRIORIDAD_INGRESO = sorted(niveles_prioridad)[0]
+NIVEL_PRIORIDAD_ADMISION = sorted(niveles_prioridad)[0]
 
 
 def now() -> str:
@@ -70,9 +70,9 @@ class EstadoAtendidoModel(BaseModel):
     atendido: bool = False
     hora: datetime | None = None
 
-    def set_hora(self):
-        # self.hora = datetime.today().strftime("%H:%M") if self.atendido else None
-        self.hora = now() if self.atendido else None
+    @validator("hora", always=True)
+    def set_hora(cls, value, values):    
+        return now() if values["atendido"] else None
 
     class Config:
         schema_extra = {
@@ -83,17 +83,23 @@ class EstadoAtendidoModel(BaseModel):
 
 
 class PrioridadModel(BaseModel):
-    nivel: int = NIVEL_PRIORIDAD_INGRESO
+    nivel: int = NIVEL_PRIORIDAD_ADMISION
+    tiempo_espera: str = triage[str(NIVEL_PRIORIDAD_ADMISION)]["tiempo_espera"]
     hora: datetime | None = None
 
-    def set_hora(self):
-        self.hora = now() if self.nivel > NIVEL_PRIORIDAD_INGRESO else None
-
-    @validator('nivel')
+    @validator("nivel")
     def nivel_valido(cls, nivel):
         if nivel not in niveles_prioridad:
             raise ValueError('Nivel de prioridad asignado no válido')
         return nivel
+
+    @validator("tiempo_espera", always=True)
+    def set_tiempo_espera(cls, value, values):
+        return triage[str(values["nivel"])]["tiempo_espera"]
+
+    @validator("hora", always=True)
+    def set_hora(cls, value, values):
+        return now() if values["nivel"] > NIVEL_PRIORIDAD_ADMISION else None
 
     class Config:
         schema_extra = {
@@ -104,31 +110,36 @@ class PrioridadModel(BaseModel):
         
 
 class SignosVitalesModel(BaseModel):
-    ta_s: int = Field(...)
-    ta_d: int = Field(...)
-    fc: int = Field(...)
-    fr: int = Field(...)
-    t: float = Field(...)
-    sat: int = Field(...)
-    normal: bool = True  # Analisis de normalidad/alteración de los signos vitales. True = OK
+    ta_s: int | None = None
+    ta_d: int | None = None
+    fc: int | None = None
+    fr: int | None = None
+    t: float | None = None
+    sat: int | None = None
+    normal: bool = False  # Analisis de normalidad/alteración de los signos vitales. True = OK
 
     @validator("normal", always=True)
     def check_signos_vitales(cls, value, values):
-        return ((100 <= values["ta_s"] <= 140) and (60 <= values["ta_d"] <= 90) and 
-            (60 <= values["fc"] <= 100) and (8 <= values["fr"] <= 16) and 
-            (values["t"] <= 38.0) and (values["sat"] >= 95)
+        return (not None in values.values() and
+            (100 <= values["ta_s"] <= 140) and 
+            (60 <= values["ta_d"] <= 90) and 
+            (60 <= values["fc"] <= 100) and 
+            (8 <= values["fr"] <= 16) and 
+            (values["t"] <= 38.0) and 
+            (values["sat"] >= 95)
         )
 
 class ExamenFisicoModel(BaseModel):
     examen: str | None = None
     hora: datetime | None = None
 
-    def set_hora(self):
-        self.hora = now() if (self.examen and not self.examen.isspace()) else None
+    @validator("hora", always=True)
+    def set_hora(cls, value, values):
+        return now() if (values["examen"] is not None and not values["examen"].isspace()) else None
 
 
 class DatosMedicosModel(BaseModel):
-    signos_vitales: SignosVitalesModel | None = None
+    signos_vitales: SignosVitalesModel = Field(default_factory=SignosVitalesModel)
     anamnesis_enfermeria: str | None = None
     examen_fisico: ExamenFisicoModel = Field(default_factory=ExamenFisicoModel)
     medicacion: str | None = None
@@ -160,19 +171,7 @@ class ConsultaModel(BaseModel):
     fecha_hora_atencion: datetime | None = None
     prioridad: PrioridadModel = Field(default_factory=PrioridadModel)
     datos_medicos: DatosMedicosModel = Field(default_factory=DatosMedicosModel)
-
-    # def __init__(self, datos_paciente):
-    #     dia_hora_actual = datetime.today()
-    #     data = {}
-    #     data["datos_paciente"] = datos_paciente        
-    #     data["dia_admision"] = dia_hora_actual.strftime("%Y-%m-%d")
-    #     data["hora_admision"] = dia_hora_actual.strftime("%H:%M")
-    #     data["fecha_hora_admision"] = datetime.utcnow()
-    #     data["estado_atendido"] = EstadoAtendidoModel()
-    #     data["prioridad"] = PrioridadModel()
-    #     data["datos_medicos"] = DatosMedicosModel(examen_fisico=ExamenFisicoModel())
-    #     super().__init__(**data)
-
+ 
     class Config:
         allow_population_by_field_name = True
         arbitrary_types_allowed = True

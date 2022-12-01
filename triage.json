@@ -1,40 +1,34 @@
 {
-    "triage" : [
-        {
-            "nivel": 1,
+    "triage" : {
+        "0": {
             "color": "purple",
             "tipo_urgencia": "Indefinido",
             "tiempo_espera": "Aún no determinada"
         },
-        {
-            "nivel": 2,
+        "1": {
             "color": "blue",
             "tipo_urgencia": "Sin urgencia",
             "tiempo_espera": "4 horas"
         },
-        {
-            "nivel": 3,
+        "2": {
             "color": "green",
             "tipo_urgencia": "Urgencia menor",
             "tiempo_espera": "2 horas"
         },
-        {
-            "nivel": 4,
+        "3": {
             "color": "yellow",
             "tipo_urgencia": "Urgencia",
             "tiempo_espera": "60 minutos"
         },
-        {
-            "nivel": 5,
+        "4": {
             "color": "orange",
             "tipo_urgencia": "Emergencia",
             "tiempo_espera": "10-15 minutos"
         },
-        {
-            "nivel": 6,
+        "5": {
             "color": "red",
             "tipo_urgencia": "Resucitación",
             "tiempo_espera": "Atención inmediata"
         }
-    ]
+    }
 }
